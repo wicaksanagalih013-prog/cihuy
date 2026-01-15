@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You Are My Love</title>
+<style>
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:black;
+  font-family:Arial, sans-serif;
+}
+#bg{
+  position:fixed;
+  inset:0;
+  z-index:0;
+}
+#countdown{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:22vw;
+  color:white;
+  font-weight:bold;
+  opacity:0;
+  transition:.8s;
+  z-index:3;
+}
+canvas.webgl{
+  position:fixed;
+  inset:0;
+  z-index:2;
+}
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div id="countdown"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.155.0/build/three.min.js"></script>
+<script>
+/* ================= BACKGROUND ================= */
+const bg=document.getElementById("bg");
+const bctx=bg.getContext("2d");
+function resizeBG(){bg.width=innerWidth;bg.height=innerHeight;}
+resizeBG();addEventListener("resize",resizeBG);
+
+let rain=[];
+let rainCount = Math.floor(window.innerWidth / 2);
+for(let i=0;i<rainCount;i++){
+  rain.push({
+    x:Math.random()*bg.width,
+    y:Math.random()*bg.height,
+    v:0.6+Math.random()*1.8,
+    s:1+Math.random()*2,
+    a:0.3+Math.random()*0.6
+  });
+}
+function animateBG(){
+  bctx.fillStyle="rgba(0,0,0,0.25)";
+  bctx.fillRect(0,0,bg.width,bg.height);
+  rain.forEach(p=>{
+    p.y+=p.v;
+    if(p.y>bg.height){p.y=0;p.x=Math.random()*bg.width;}
+    bctx.fillStyle=`rgba(255,105,180,${p.a})`;
+    bctx.fillRect(p.x,p.y,p.s,p.s);
+  });
+  requestAnimationFrame(animateBG);
+}
+animateBG();
+
+/* ================= THREE ================= */
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,1,3000);
+camera.position.z=900;
+
+const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.domElement.className="webgl";
+document.body.appendChild(renderer.domElement);
+
+addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+let particles=[],targets=[];
+let heartParticles=[],heartTargets=[];
+let pulseTime=0;
+
+/* ================= WORD FLOW ================= */
+const words=[
+  "YOU",
+  "ARE",
+  "MY",
+  "LOVE",
+  "I LOVE YOU MORE 🤍\nMY MBULLKUU",
+  "DARI SESEORANG YANG MASIH MENUNGGUMU\nTANPA ADA YANG BERUBAH RASANYA\nSESEORANG YANG SANGAT MENCINTAIMU\nDAN MENYAYANGIMU\nDAN SANGAT BANGGA KEPADAMU\nSEMOGA KMU TERHIBUR\nDAN JANGAN SEDIH SEDIH LAGI YAA SAYANGKUU\nMY MBULL 🤍❤️😘\nMASS WIGA"
+];
+let index=0;
+
+/* ================= ANIMATE ================= */
+function animate(){
+  requestAnimationFrame(animate);
+  pulseTime+=0.02;
+
+  particles.forEach((p,i)=>{
+    const t=targets[i]; if(!t) return;
+    p.position.x+=(t.x-p.position.x)*0.05;
+    p.position.y+=(t.y-p.position.y)*0.05;
+    p.position.z+=(t.z-p.position.z)*0.05;
+  });
+
+  const pulse=1+Math.sin(pulseTime)*0.15;
+  heartParticles.forEach((h,i)=>{
+    const t=heartTargets[i]; if(!t) return;
+    h.position.x+=(t.x-h.position.x)*0.06;
+    h.position.y+=(t.y-h.position.y)*0.06;
+    h.scale.set(pulse,pulse,pulse);
+  });
+
+  renderer.render(scene,camera);
+}
+animate();
+
+/* ================= COUNTDOWN ================= */
+const cd=document.getElementById("countdown");
+let n=3;
+function countdown(){
+  if(n===0){cd.style.opacity=0;setTimeout(showWord,700);return;}
+  cd.innerText=n;
+  cd.style.opacity=1;
+  cd.style.transition="opacity 0.8s ease";
+  setTimeout(()=>{
+    cd.style.opacity=0;
+    n--;
+    setTimeout(countdown,500);
+  },900);
+}
+setTimeout(countdown,600);
+
+/* ================= FLOW ================= */
+function showWord(){
+  if(index>=words.length) return;
+  const isSentence=index>=4;
+  createWord(words[index],isSentence);
+  setTimeout(showWord,isSentence?9000:5000);
+  index++;
+}
+
+function clearScene(){
+  [...particles,...heartParticles].forEach(o=>scene.remove(o));
+  particles=[];targets=[];
+  heartParticles=[];heartTargets=[];
+}
+
+/* ================= CREATE WORD ================= */
+function createWord(text,isSentence){
+  clearScene();
+  const c=document.createElement("canvas");
+  const ctx=c.getContext("2d");
+  c.width=1200;
+  c.height=900;
+
+  let fontSize;
+  if(!isSentence){
+    fontSize=Math.min(innerWidth*0.8,innerHeight*0.6);
+  }else{
+    // Kalimat panjang terakhir: perkecil agar tidak terpotong
+    const lines=text.split("\n").length;
+    fontSize = Math.min(48, innerHeight / (lines + 1));
+  }
+
+  ctx.fillStyle="white";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
+  ctx.font=`bold ${fontSize}px Arial`;
+
+  const lines=text.split("\n");
+  lines.forEach((l,i)=>{
+    ctx.fillText(
+      l,
+      c.width/2,
+      c.height/2+(i-(lines.length-1)/2)*fontSize*1.15
+    );
+  });
+
+  const img=ctx.getImageData(0,0,c.width,c.height).data;
+  const scale=Math.min(innerWidth/c.width,innerHeight/c.height);
+
+  let minX=9999,maxX=-9999,minY=9999,maxY=-9999;
+
+  for(let y=0;y<c.height;y+=6){
+    for(let x=0;x<c.width;x+=6){
+      if(img[(y*c.width+x)*4+3]>150){
+        minX=Math.min(minX,x);maxX=Math.max(maxX,x);
+        minY=Math.min(minY,y);maxY=Math.max(maxY,y);
+
+        const p=new THREE.Mesh(
+          new THREE.SphereGeometry(1.8,8,8),
+          new THREE.MeshBasicMaterial({color:0xffffff})
+        );
+        p.position.set((Math.random()-0.5)*1800,(Math.random()-0.5)*1800,-300);
+        scene.add(p);
+        particles.push(p);
+        targets.push({x:(x-c.width/2)*scale,y:(c.height/2-y)*scale,z:0});
+      }
+    }
+  }
+
+  // Heart frame dihapus untuk kalimat terakhir
+  if(text.includes("MBULLKUU") && index<words.length-1){
+    createHeartFrame(minX,maxX,minY,maxY,scale);
+  }
+}
+
+/* ================= HEART FRAME ================= */
+function createHeartFrame(minX,maxX,minY,maxY,scale){
+  const w=(maxX-minX)*scale;
+  const h=(maxY-minY)*scale;
+  const size=Math.min(w,h)*0.34;
+
+  for(let i=0;i<360;i++){
+    const t=i/360*Math.PI*2;
+    const x=size*16*Math.pow(Math.sin(t),3);
+    const y=size*(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t));
+
+    const hrt=new THREE.Mesh(
+      new THREE.SphereGeometry(2.4,8,8),
+      new THREE.MeshBasicMaterial({color:0xff69b4})
+    );
+    hrt.position.set((Math.random()-0.5)*1400,(Math.random()-0.5)*1400,-150);
+    scene.add(hrt);
+    heartParticles.push(hrt);
+    heartTargets.push({x,y,z:-150});
+  }
+}
+</script>
+</body>
+</html>
